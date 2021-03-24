@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,8 +22,8 @@ namespace aopeng
 
         static void Main(string[] args)
         {
-          
-            
+
+
             Console.WriteLine("请输入账号后回车");
             userName = Console.ReadLine();//账号
             Console.WriteLine("请输入密码后回车");
@@ -41,7 +41,7 @@ namespace aopeng
             {
                 Console.WriteLine("运行结束");
                 Console.ReadLine();
-            }       
+            }
         }
 
         /// <summary>
@@ -168,84 +168,154 @@ namespace aopeng
                         JArray jAchildrenchildren = JArray.Parse(jAchildren[c]["children"].ToString());
                         for (int d = 0; d < jAchildrenchildren.Count; d++)
                         {
-                            string resourceId = jAchildrenchildren[d]["id"].ToString();
-
-                            string duration = "60";
-                            double breakPoint = 0;
-                            try
-                                {
-                                    if (jAchildrenchildren[d].ToString().Contains("duration"))
-										duration = jAchildrenchildren[d]["duration"].ToString();
-									if (jAchildrenchildren[d].ToString().Contains("breakPoint"))
-                                        double.TryParse(jAchildrenchildren[d]["breakPoint"].ToString(), out breakPoint);
-								}
-                                catch (Exception)
-                                {
-									duration = jAchildrenchildren[d]["children"][0]["duration"].ToString();
-                                    if (jAchildrenchildren[d]["children"][0].ToString().Contains("breakPoint"))
-                                        double.TryParse(jAchildrenchildren[d]["children"][0]["breakPoint"].ToString(), out breakPoint);
-								}
-
-                            duration = duration.Length > 0 ? (float.Parse(duration) / 1000).ToString("f2") : "0";
-                            double dduration = double.Parse(duration);
-
-                            if (breakPoint + 20 >= dduration) continue;
-                            Console.WriteLine("总时长:" + duration.ToString() + " 已学:" + breakPoint.ToString());
-                            while (dduration > breakPoint)
+                            if (jAchildrenchildren[d]["children"].ToString() != "[]")
                             {
-
-                                breakPoint += 60;
-                                //课程在线时长
-                                dayOnlieTime += CourseOnlineTime(CourseId);
-                                if (dayOnlieTime >= 150)
+                                JArray jAchildrenchildrenchildren = JArray.Parse(jAchildrenchildren[d]["children"].ToString());
+                                for (int e = 0; e < jAchildrenchildrenchildren.Count; e++)
                                 {
-                                    Console.WriteLine("今日已完成在线积分");
-                                    if (dayCourseClick >= 20)
+                                    string namee = jAchildrenchildrenchildren[e]["name"].ToString();//第001讲unit 1 Listen and Talk
+                                    Console.WriteLine("正在学习:" + namee);
+                                    JArray jAchildrenchildrenchildrenchildren = JArray.Parse(jAchildrenchildrenchildren[e]["children"].ToString());
+                                    for (int f = 0; f < jAchildrenchildrenchildrenchildren.Count; f++)
                                     {
-                                        return;
+                                        string resourceId = jAchildrenchildrenchildrenchildren[f]["id"].ToString();
+
+                                        string duration = "60";
+                                        double breakPoint = 0;
+                                        if (jAchildrenchildrenchildrenchildren[f].ToString().Contains("duration"))
+                                            duration = jAchildrenchildrenchildrenchildren[f]["duration"].ToString();
+                                        if (jAchildrenchildrenchildrenchildren[f].ToString().Contains("breakPoint"))
+                                            double.TryParse(jAchildrenchildrenchildrenchildren[f]["breakPoint"].ToString(), out breakPoint);
+
+                                        duration = duration.Length > 0 ? (float.Parse(duration) / 1000).ToString("f2") : "0";
+                                        double dduration = double.Parse(duration);
+
+                                        if (breakPoint + 20 >= dduration) continue;
+                                        Console.WriteLine("总时长:" + duration.ToString() + " 已学:" + breakPoint.ToString());
+                                        while (dduration > breakPoint)
+                                        {
+
+                                            breakPoint += 60;
+                                            //课程在线时长
+                                            dayOnlieTime += CourseOnlineTime(CourseId);
+                                            if (dayOnlieTime >= 150)
+                                            {
+                                                Console.WriteLine("今日已完成在线积分");
+                                                if (dayCourseClick >= 20)
+                                                {
+                                                    return;
+                                                }
+                                            }
+
+
+                                            //课程进度
+                                            string videoProgress = web.Post(URLS.Host_videoProgress, "type=2&data=" + Convert.ToInt32(breakPoint) + "&resourceID=" + resourceId + "&courseID=" + CourseId);
+                                            Console.WriteLine("videoProgress Request:" + videoProgress);
+                                            //学习时长
+                                            string LearningDurations = web.Post(URLS.Hsot_learningDurations, "durations=60");
+                                            Console.WriteLine("LearningDurations Request:" + LearningDurations);
+                                            int coursetype = int.Parse(jAchildrenchildrenchildrenchildren[f]["type"].ToString());
+                                            //播放记录
+                                            coursetype = 2;
+                                            int resourceType = 1;
+                                            JObject jExteend = new JObject(
+                                                new JProperty("orgId", orgId),
+                                                new JProperty("StudentCourseId", StudentCourseId));
+                                            string extend = JsonConvert.SerializeObject(jExteend);
+                                            string postDate = $"courseId={CourseId}&courseName={CourseName.toUrl()}&firstImg={videoFirstImg.toUrl()}&schoolName={schoolName.toUrl()}&coursewareId={coursewareId}&resourceId={resourceId}&resourceName={name.toUrl()}&duration={duration}&courseType={coursetype}&resourceType={resourceType}&extend={extend}";
+                                            Requset = web.Post(URLS.Host_PlayHistory, postDate);
+                                            Console.WriteLine("PlayHistory Requset:" + Requset);
+
+                                            //关键数据包，发送当前学习进度
+                                            JObject jdata = new JObject();
+                                            jdata.Add(new JProperty("actor", new JObject(new JProperty("extensions", new JObject(new JProperty("studentStatusId", StudentCode), new JProperty("organizationId", orgId))), new JProperty("actorId", userId), new JProperty("actorName", ""), new JProperty("actorType", 1))));
+                                            jdata.Add(new JProperty("objectInfo", new JObject(new JProperty("objId", resourceId), new JProperty("objType", "video"), new JProperty("objName", name), new JProperty("extensions", ""))));
+                                            jdata.Add(new JProperty("verbInfo", new JObject(new JProperty("verbType", "set"), new JProperty("extensions", new JObject(new JProperty("verbCategory", "pause"))))));
+                                            jdata.Add(new JProperty("context", new JObject(new JProperty("ip", "192.168.0.1"), new JProperty("terminalInfo", terminalinfo), new JProperty("terminalType", 2),
+                                                new JProperty("extensions", new JObject(new JProperty("coursewareId", coursewareId), new JProperty("resourcesId", resourceId), new JProperty("courseId", CourseId),
+                                                new JProperty("electiveCourseId", electiveCourseId), new JProperty("time", Convert.ToInt32(breakPoint)))))));
+                                            jdata.Add(new JProperty("result", ""));
+                                            jdata.Add(new JProperty("actionTimestamp", GetTimeStamp(false)));
+
+                                            string jsonData = JsonConvert.SerializeObject(jdata);
+                                            string data_collection =
+                                                web.Post_end(URLS.Host_data_collection, "jsonData=" + jsonData, dic);
+                                            Console.WriteLine("data-collection Requset:" + data_collection);
+
+                                        }
+
+
                                     }
                                 }
-
-
-                                //课程进度
-                                string videoProgress = web.Post(URLS.Host_videoProgress, "type=2&data=" + Convert.ToInt32(breakPoint) + "&resourceID=" + resourceId + "&courseID=" + CourseId);
-                                Console.WriteLine("videoProgress Request:" + videoProgress);
-                                //学习时长
-                                string LearningDurations = web.Post(URLS.Hsot_learningDurations, "durations=60");
-                                Console.WriteLine("LearningDurations Request:" + LearningDurations);
-                                int coursetype = int.Parse(jAchildrenchildren[d]["type"].ToString());
-                                //播放记录
-                                coursetype = 2;
-                                int resourceType = 1;
-                                JObject jExteend = new JObject(
-                                    new JProperty("orgId", orgId),
-                                    new JProperty("StudentCourseId", StudentCourseId));
-                                string extend = JsonConvert.SerializeObject(jExteend);
-                                string postDate = $"courseId={CourseId}&courseName={CourseName.toUrl()}&firstImg={videoFirstImg.toUrl()}&schoolName={schoolName.toUrl()}&coursewareId={coursewareId}&resourceId={resourceId}&resourceName={name.toUrl()}&duration={duration}&courseType={coursetype}&resourceType={resourceType}&extend={extend}";
-                                Requset = web.Post(URLS.Host_PlayHistory, postDate);
-                                Console.WriteLine("PlayHistory Requset:" + Requset);
-
-                                //关键数据包，发送当前学习进度
-                                JObject jdata = new JObject();
-                                jdata.Add(new JProperty("actor", new JObject(new JProperty("extensions", new JObject(new JProperty("studentStatusId", StudentCode), new JProperty("organizationId", orgId))), new JProperty("actorId", userId), new JProperty("actorName", ""), new JProperty("actorType", 1))));
-                                jdata.Add(new JProperty("objectInfo", new JObject(new JProperty("objId", resourceId), new JProperty("objType", "video"), new JProperty("objName", name), new JProperty("extensions", ""))));
-                                jdata.Add(new JProperty("verbInfo", new JObject(new JProperty("verbType", "set"), new JProperty("extensions", new JObject(new JProperty("verbCategory", "pause"))))));
-                                jdata.Add(new JProperty("context", new JObject(new JProperty("ip", "192.168.0.1"), new JProperty("terminalInfo", terminalinfo), new JProperty("terminalType", 2),
-                                    new JProperty("extensions", new JObject(new JProperty("coursewareId", coursewareId), new JProperty("resourcesId", resourceId), new JProperty("courseId", CourseId),
-                                    new JProperty("electiveCourseId", electiveCourseId), new JProperty("time", Convert.ToInt32(breakPoint)))))));
-                                jdata.Add(new JProperty("result", ""));
-                                jdata.Add(new JProperty("actionTimestamp", GetTimeStamp(false)));
-
-                                string jsonData = JsonConvert.SerializeObject(jdata);
-                                string data_collection =
-                                    web.Post_end(URLS.Host_data_collection, "jsonData=" + jsonData, dic);
-                                Console.WriteLine("data-collection Requset:" + data_collection);
-
                             }
+                            else
+                            {
+                                string resourceId = jAchildrenchildren[d]["id"].ToString();
+
+                                string duration = "60";
+                                double breakPoint = 0;
+                                if (jAchildrenchildren[d].ToString().Contains("duration"))
+                                    duration = jAchildrenchildren[d]["duration"].ToString();
+                                if (jAchildrenchildren[d].ToString().Contains("breakPoint"))
+                                    double.TryParse(jAchildrenchildren[d]["breakPoint"].ToString(), out breakPoint);
+
+                                duration = duration.Length > 0 ? (float.Parse(duration) / 1000).ToString("f2") : "0";
+                                double dduration = double.Parse(duration);
+
+                                if (breakPoint + 20 >= dduration) continue;
+                                Console.WriteLine("总时长:" + duration.ToString() + " 已学:" + breakPoint.ToString());
+                                while (dduration > breakPoint)
+                                {
+
+                                    breakPoint += 60;
+                                    //课程在线时长
+                                    dayOnlieTime += CourseOnlineTime(CourseId);
+                                    if (dayOnlieTime >= 150)
+                                    {
+                                        Console.WriteLine("今日已完成在线积分");
+                                        if (dayCourseClick >= 20)
+                                        {
+                                            return;
+                                        }
+                                    }
 
 
+                                    //课程进度
+                                    string videoProgress = web.Post(URLS.Host_videoProgress, "type=2&data=" + Convert.ToInt32(breakPoint) + "&resourceID=" + resourceId + "&courseID=" + CourseId);
+                                    Console.WriteLine("videoProgress Request:" + videoProgress);
+                                    //学习时长
+                                    string LearningDurations = web.Post(URLS.Hsot_learningDurations, "durations=60");
+                                    Console.WriteLine("LearningDurations Request:" + LearningDurations);
+                                    int coursetype = int.Parse(jAchildrenchildren[d]["type"].ToString());
+                                    //播放记录
+                                    coursetype = 2;
+                                    int resourceType = 1;
+                                    JObject jExteend = new JObject(
+                                        new JProperty("orgId", orgId),
+                                        new JProperty("StudentCourseId", StudentCourseId));
+                                    string extend = JsonConvert.SerializeObject(jExteend);
+                                    string postDate = $"courseId={CourseId}&courseName={CourseName.toUrl()}&firstImg={videoFirstImg.toUrl()}&schoolName={schoolName.toUrl()}&coursewareId={coursewareId}&resourceId={resourceId}&resourceName={name.toUrl()}&duration={duration}&courseType={coursetype}&resourceType={resourceType}&extend={extend}";
+                                    Requset = web.Post(URLS.Host_PlayHistory, postDate);
+                                    Console.WriteLine("PlayHistory Requset:" + Requset);
+
+                                    //关键数据包，发送当前学习进度
+                                    JObject jdata = new JObject();
+                                    jdata.Add(new JProperty("actor", new JObject(new JProperty("extensions", new JObject(new JProperty("studentStatusId", StudentCode), new JProperty("organizationId", orgId))), new JProperty("actorId", userId), new JProperty("actorName", ""), new JProperty("actorType", 1))));
+                                    jdata.Add(new JProperty("objectInfo", new JObject(new JProperty("objId", resourceId), new JProperty("objType", "video"), new JProperty("objName", name), new JProperty("extensions", ""))));
+                                    jdata.Add(new JProperty("verbInfo", new JObject(new JProperty("verbType", "set"), new JProperty("extensions", new JObject(new JProperty("verbCategory", "pause"))))));
+                                    jdata.Add(new JProperty("context", new JObject(new JProperty("ip", "192.168.0.1"), new JProperty("terminalInfo", terminalinfo), new JProperty("terminalType", 2),
+                                        new JProperty("extensions", new JObject(new JProperty("coursewareId", coursewareId), new JProperty("resourcesId", resourceId), new JProperty("courseId", CourseId),
+                                        new JProperty("electiveCourseId", electiveCourseId), new JProperty("time", Convert.ToInt32(breakPoint)))))));
+                                    jdata.Add(new JProperty("result", ""));
+                                    jdata.Add(new JProperty("actionTimestamp", GetTimeStamp(false)));
+
+                                    string jsonData = JsonConvert.SerializeObject(jdata);
+                                    string data_collection =
+                                        web.Post_end(URLS.Host_data_collection, "jsonData=" + jsonData, dic);
+                                    Console.WriteLine("data-collection Requset:" + data_collection);
+                                }
+                            }
                         }
-
                     }
                 }
 
