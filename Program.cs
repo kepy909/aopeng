@@ -99,10 +99,13 @@ namespace aopeng
                             ))));
                     string Info = JsonConvert.SerializeObject(jBody);
                     Requset = web.Post(URLS.Host_ensureCreat, Info);
-                    jObject = JObject.Parse(Requset);
-                    string ucUserId = jObject["ucUserId"].ToString();
-                    string token = jObject["token"].ToString();
-                    web.Token = token;
+                    if (!Requset.ToString().Contains("Validation Failed"))
+                    {
+                        jObject = JObject.Parse(Requset);
+                        string ucUserId = jObject["ucUserId"].ToString();
+                        string token = jObject["token"].ToString();
+                        web.Token = token;
+                    }
                     GetClassCount(StudentCode);
                 }
             }
